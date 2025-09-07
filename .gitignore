@@ -1,3 +1,6 @@
-.vscode
-build
-cmake
+/.vscode
+/cmake
+build/*
+!build/Debug/
+build/Debug/*
+!build/Debug/mb_pro_firmware.elf
