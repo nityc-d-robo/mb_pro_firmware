@@ -8,7 +8,7 @@
   *
   * Copyright (c) 2025 STMicroelectronics.
   * All rights reserved.
-  *
+  *ramped
   * This software is licensed under terms that can be found in the LICENSE file
   * in the root directory of this software component.
   * If no LICENSE file comes with this software, it is provided AS-IS.
@@ -35,22 +35,24 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 uint32_t id_own;
-SpeedController controller[8];
+SpeedController controller[8] = { 0 };
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-float KP  = 0.005f;
-float KI  = 0.05f;
-float KD  = 0.1f;
+float KP  = 0.01f;
+float KI  = 0.0001f;
+float KD  = 0.f;
 
-float DT = 0.005f;
+float DT = 0.05f;
 
 #define INTEGRAL_MAX (4000.0f)
 #define INTEGRAL_MIN (-4000.0f)
 
-#define CURRENT_MAX (1.5f)
-#define CURRENT_MIN (-1.5f)
+#define CURRENT_MAX (6.f)
+#define CURRENT_MIN (-6.f)
+
+#define MAX_DIFF_RPM 30
 
 #define NORMALIZED_MAX (16384)
 #define NORMALIZED_MIN (-16384)
@@ -169,13 +171,35 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 /**
+  * @brief  目標rpmと前周期の指示rpmを元にこの制御周期のramped_target_rpmを計算する
+  * @param  target_rpm 最終的な目標のrpm値
+  * @param  pre_ramped_rpm 前周期で算出した加速度でクリップされたrpm
+  * @retval 加速度でクリップされたrpm
+  */
+float rampedRPM(float target_rpm, float pre_ramped_rpm) {
+  float diff_rpm = target_rpm - pre_ramped_rpm;
+
+  float ramped_rpm;
+
+  if (diff_rpm > MAX_DIFF_RPM) {
+    ramped_rpm = pre_ramped_rpm + MAX_DIFF_RPM;
+  } else if (diff_rpm < -MAX_DIFF_RPM) {
+    ramped_rpm = pre_ramped_rpm - MAX_DIFF_RPM;
+  } else {
+    ramped_rpm = target_rpm;
+  }
+
+  return ramped_rpm;
+}
+
+/**
   * @brief  target_rpmとnow_rpmを元に電流値を算出する
   * @param  target_rpm 目標のrpm int16_t
   * @param  now_rpm 現在のrpm int16_t
   * @retval 電流値，-20A ~ 20Aを-16384 ~ 16384の範囲に正規化
   */
 int16_t rotateSpeed(SpeedController *cnt_) {
-  cnt_->error = cnt_->target.value - cnt_->motors.rpm;
+  cnt_->error = cnt_->target.ramped_rpm - cnt_->motors.rpm;
 
   cnt_->p = cnt_->error;
   float p_term = KP * cnt_->error;
@@ -205,7 +229,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     __HAL_TIM_CLEAR_FLAG(&htim6, TIM_IT_UPDATE);
 
     FDCAN_TxHeaderTypeDef tx_header;
-    uint8_t tx_datas[8];
+    uint8_t tx_datas[8] = { 0 };
 
     tx_header.Identifier = 0x200;
     tx_header.IdType = FDCAN_STANDARD_ID;
@@ -215,18 +239,37 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     tx_header.BitRateSwitch = FDCAN_BRS_OFF;
     tx_header.FDFormat = FDCAN_CLASSIC_CAN;
 
-    int16_t current = rotateSpeed(&controller[0]);
-    tx_datas[0] = ((current >> 8) & 0xFF);
-    tx_datas[1] = (current & 0xFF);
-    // tx_datas[0] = (uint8_t)(0b00000100);
-    // tx_datas[1] = (uint8_t)(0b11001100);
-    tx_datas[2] = (uint8_t)(0x0);
-    tx_datas[3] = (uint8_t)(0x0);
-    tx_datas[4] = (uint8_t)(0x0);
-    tx_datas[5] = (uint8_t)(0x0);
-    tx_datas[6] = (uint8_t)(0x0);
-    tx_datas[7] = (uint8_t)(0x0);
+    for (size_t i = 0; i < 4; i++) {
+      if (controller[i].target.mode != SPEED) { continue; }
 
+      controller[i].target.pre_ramped_rpm = controller[i].target.ramped_rpm;
+
+      controller[i].target.ramped_rpm = rampedRPM(controller[i].target.rpm, controller[i].target.pre_ramped_rpm);
+
+      int16_t current = rotateSpeed(&controller[i]);
+
+      tx_datas[i * 2] = ((current >> 8) & 0xFF);
+      tx_datas[i * 2 + 1] = (current & 0xFF);
+    }
+    HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &tx_header, tx_datas);
+
+    tx_header.Identifier = 0x1FF;
+    for (size_t i = 0; i < 4; i++) {
+      if (controller[i + 4].target.mode != SPEED) {
+        tx_datas[i * 2] = 0;
+        tx_datas[i * 2 + 1] = 0;
+        continue; 
+      }
+
+      controller[i + 4].target.pre_ramped_rpm = controller[i + 4].target.ramped_rpm;
+
+      controller[i + 4].target.ramped_rpm = rampedRPM(controller[i + 4].target.rpm, controller[i + 4].target.pre_ramped_rpm);
+
+      int16_t current = rotateSpeed(&controller[i + 4]);
+
+      tx_datas[i * 2] = ((current >> 8) & 0xFF);
+      tx_datas[i * 2 + 1] = (current & 0xFF);
+    }
     HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &tx_header, tx_datas);
   }
   

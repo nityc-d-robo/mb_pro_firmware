@@ -136,7 +136,9 @@ typedef enum {
 
 typedef struct {
   Mode mode;
-  float value;
+  float rpm;
+  float ramped_rpm;
+  float pre_ramped_rpm;
 } TargetState;
 
 typedef struct {

@@ -341,12 +341,12 @@ void FDCAN1_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan1_, uint32_t RxFifo1ITs) 
   if (rx_header.Identifier == (RX_PDO1_CODE | id_own)) {
     for (size_t i = 0; i < 4; i++) {
       controller[i].target.mode = SPEED;
-      controller[i].target.value = (float)(int16_t)(rx_data[i * 2] << 8 | rx_data[i * 2 + 1]);
+      controller[i].target.rpm = (float)((int16_t)(rx_data[i * 2] << 8 | rx_data[i * 2 + 1]) * GEAR_RATIO);
     }
   } else if (rx_header.Identifier == (RX_PDO2_CODE | id_own)) {
     for (size_t i = 0; i < 4; i++) {
       controller[i + 4].target.mode = SPEED;
-      controller[i + 4].target.value = (float)(int16_t)(rx_data[i * 2] << 8 | rx_data[i * 2 + 1]);
+      controller[i + 4].target.rpm = (float)((int16_t)(rx_data[i * 2] << 8 | rx_data[i * 2 + 1]) * GEAR_RATIO);
     }
   }
 }
@@ -358,7 +358,7 @@ void FDCAN2_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan2_, uint32_t RxFifo0ITs) 
   if (HAL_FDCAN_GetRxMessage(hfdcan2_, FDCAN_RX_FIFO0, &rx_header, rx_data) != HAL_OK) { return; }
   int32_t motor_id = (rx_header.Identifier & 0x0F) - 1;
   controller[motor_id].motors.angle = (rx_data[0] << 8 | rx_data[1]);
-  controller[motor_id].motors.rpm = (float)(((int16_t)(rx_data[2] << 8 | rx_data[3])) / GEAR_RATIO); 
+  controller[motor_id].motors.rpm = (float)((int16_t)(rx_data[2] << 8 | rx_data[3])); 
   controller[motor_id].motors.current = (rx_data[4] << 8 | rx_data[5]);
   controller[motor_id].motors.temp = (rx_data[6]);
 }
