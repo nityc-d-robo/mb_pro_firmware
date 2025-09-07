@@ -40,11 +40,11 @@ SpeedController controller[8];
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define KP (0.01f)
-#define KI (0.1f)
-#define KD (0.1f)
+float KP  = 0.005f;
+float KI  = 0.05f;
+float KD  = 0.1f;
 
-#define DT (0.05f)
+float DT = 0.005f;
 
 #define INTEGRAL_MAX (4000.0f)
 #define INTEGRAL_MIN (-4000.0f)
@@ -175,7 +175,6 @@ void SystemClock_Config(void)
   * @retval 電流値，-20A ~ 20Aを-16384 ~ 16384の範囲に正規化
   */
 int16_t rotateSpeed(SpeedController *cnt_) {
-  int16_t current;
   cnt_->error = cnt_->target.value - cnt_->motors.rpm;
 
   cnt_->p = cnt_->error;
@@ -217,8 +216,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     tx_header.FDFormat = FDCAN_CLASSIC_CAN;
 
     int16_t current = rotateSpeed(&controller[0]);
-    tx_datas[0] = (uint8_t)((current & 0xFF00) >> 8);
-    tx_datas[1] = (uint8_t)(current << 8);
+    tx_datas[0] = ((current >> 8) & 0xFF);
+    tx_datas[1] = (current & 0xFF);
+    // tx_datas[0] = (uint8_t)(0b00000100);
+    // tx_datas[1] = (uint8_t)(0b11001100);
     tx_datas[2] = (uint8_t)(0x0);
     tx_datas[3] = (uint8_t)(0x0);
     tx_datas[4] = (uint8_t)(0x0);

@@ -125,7 +125,7 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 typedef struct {
   int16_t angle;
-  int16_t rpm;
+  float rpm;
   int16_t current;
   int8_t temp;
 } MotorState;
@@ -136,17 +136,17 @@ typedef enum {
 
 typedef struct {
   Mode mode;
-  int16_t value;
+  float value;
 } TargetState;
 
 typedef struct {
   MotorState motors;
   TargetState target;
-  int32_t p;
-  int32_t i;
-  int32_t d;
-  int32_t error;
-  int32_t pre_error;
+  float p;
+  float i;
+  float d;
+  float error;
+  float pre_error;
 } SpeedController;
 
 /* USER CODE END Private defines */
