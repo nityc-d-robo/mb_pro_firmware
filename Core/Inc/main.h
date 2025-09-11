@@ -128,6 +128,8 @@ typedef struct {
   int16_t angle;
   int16_t overflow;
   int32_t fusion_cnt;
+  int32_t pre_fusion_cnt;
+  int32_t first_fusion_cnt;
   float rpm;
   int16_t current;
   int8_t temp;
@@ -146,9 +148,10 @@ typedef struct {
 
 typedef struct {
   Mode mode;
-  int32_t fusion_cnt;
-  float ramped_angle;
-  float pre_ramped_angle;
+//   int32_t fusion_cnt;
+//   float ramped_angle;
+//   float pre_ramped_angle;
+  int16_t current;
 } AngleTargetState;
 
 typedef struct {
@@ -164,11 +167,11 @@ typedef struct {
 typedef struct {
   MotorState motors;
   AngleTargetState target;
-  float p;
-  float i;
-  float d;
-  float error;
-  float pre_error;
+  // float p;
+  // float i;
+  // float d;
+  // float error;
+  // float pre_error;
 } AngleController;
 
 /* USER CODE END Private defines */

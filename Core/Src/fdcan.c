@@ -358,9 +358,10 @@ void FDCAN1_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan1_, uint32_t RxFifo1ITs) 
     }
   }
   if (rx_header.Identifier == (RX_PDO1_CODE | id_angle)) {
-    for (size_t i = 0; i < 3; i++) {
-      angle_controller[i].target.mode = ANGLE;
-      angle_controller[i].target.fusion_cnt += (int64_t)((int16_t)(rx_data[i * 2] << 8 | rx_data[i * 2 + 1]) / 360) * 8192;
+    for (size_t i = 0; i < 4; i++) {
+      // angle_controller[i].target.mode = ANGLE;
+      // angle_controller[i].target.fusion_cnt += (int64_t)((int16_t)(rx_data[i * 2] << 8 | rx_data[i * 2 + 1]) / 360) * 8192;
+      angle_controller[i].target.current = (int16_t)(rx_data[i * 2] << 8 | rx_data[i * 2 + 1]);
     }
   }
   if (rx_header.Identifier == (RX_PDO2_CODE | id_angle)) {
@@ -383,12 +384,11 @@ void FDCAN1_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan1_, uint32_t RxFifo1ITs) 
         angle_controller[motor_id].motors.overflow--;
       }
       angle_controller[motor_id].motors.angle = new_angle;
-      if (angle_controller[motor_id].motors.fusion_cnt == 0) {
-        angle_controller[motor_id].target.fusion_cnt = (int64_t)(new_angle + (int64_t)(angle_controller[motor_id].motors.overflow * 8191));
-      }
-      
+      // if (angle_controller[motor_id].motors.fusion_cnt == -1) {
+      //   angle_controller[motor_id].motors.first_fusion_cnt = (int64_t)(new_angle + (int64_t)(angle_controller[motor_id].motors.overflow * 8191));
+      // }
       angle_controller[motor_id].motors.fusion_cnt = (int64_t)(new_angle + (int64_t)(angle_controller[motor_id].motors.overflow * 8191));
-      angle_controller[motor_id].motors.rpm = (float)((int16_t)(rx_data[2] << 8 | rx_data[3])); 
+      // angle_controller[motor_id].motors.rpm = (float)((int16_t)(rx_data[2] << 8 | rx_data[3]));
       angle_controller[motor_id].motors.current = (rx_data[4] << 8 | rx_data[5]);
       break;
     

@@ -91,7 +91,10 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
+  // for (size_t i = 0; i < 4; i++) {
+  //   angle_controller[i].motors.fusion_cnt = -1;
+  // }
+  
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -231,31 +234,31 @@ int16_t rotateSpeed(SpeedController *cnt_) {
   return normalized_current;
 }
 
-int16_t rotateAngle(AngleController *cnt_) {
-  cnt_->error = (float)(cnt_->target.fusion_cnt - cnt_->motors.fusion_cnt);
+// int16_t rotateAngle(AngleController *cnt_) {
+//   cnt_->error = (float)(cnt_->target.fusion_cnt - cnt_->motors.fusion_cnt);
 
-  cnt_->p = cnt_->error;
-  float p_term = ANGLE_KP * cnt_->error;
+//   cnt_->p = cnt_->error;
+//   float p_term = ANGLE_KP * cnt_->error;
 
-  cnt_->i += cnt_->error * ANGLE_DT;
-  if (cnt_->i > INTEGRAL_MAX) {
-    cnt_->i = INTEGRAL_MAX;
-  } else if (cnt_->i < INTEGRAL_MIN) {
-    cnt_->i = INTEGRAL_MIN;
-  }
-  float i_term = ANGLE_KI * cnt_->i;
-  cnt_->pre_error = cnt_->error;
+//   cnt_->i += cnt_->error * ANGLE_DT;
+//   if (cnt_->i > INTEGRAL_MAX) {
+//     cnt_->i = INTEGRAL_MAX;
+//   } else if (cnt_->i < INTEGRAL_MIN) {
+//     cnt_->i = INTEGRAL_MIN;
+//   }
+//   float i_term = ANGLE_KI * cnt_->i;
+//   cnt_->pre_error = cnt_->error;
 
-  float output_current = p_term + i_term;
-  if (output_current > CURRENT_MAX) {
-    output_current = CURRENT_MAX;
-  } else if (output_current < CURRENT_MIN) {
-    output_current = CURRENT_MIN;
-  }
-  int16_t normalized_current = (int16_t)((output_current / 20.0) * 10000);
+//   float output_current = p_term + i_term;
+//   if (output_current > CURRENT_MAX) {
+//     output_current = CURRENT_MAX;
+//   } else if (output_current < CURRENT_MIN) {
+//     output_current = CURRENT_MIN;
+//   }
+//   int16_t normalized_current = (int16_t)((output_current / 20.0) * 10000);
 
-  return normalized_current;
-}
+//   return normalized_current;
+// }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
   if (htim->Instance == TIM6) {
@@ -309,6 +312,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     tx_header.Identifier = 0x200;
     angle_controller[0].target.mode = ANGLE;
     angle_controller[1].target.mode = ANGLE;
+    angle_controller[2].target.mode = ANGLE;
+    angle_controller[3].target.mode = ANGLE;
     for (size_t i = 0; i < 4; i++) {
       if (angle_controller[i].target.mode != ANGLE) {
         tx_datas[i * 2] = 0;
@@ -322,8 +327,22 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
       // tx_datas[2] = ((current_2 >> 8) & 0xFF);
       // tx_datas[3] = (current_2 & 0xFF);
 
-      int16_t current = rotateAngle(&angle_controller[i]);
+      // int16_t current = rotateAngle(&angle_controller[i]);
 
+      
+      // int16_t angle_diff = angle_controller[i].motors.pre_fusion_cnt - angle_controller[i].motors.fusion_cnt;
+
+      // if (abs(angle_controller[i].motors.first_fusion_cnt - angle_controller[i].motors.fusion_cnt) > 10000) {
+      //   if (abs(angle_diff) < 250) {
+      //     if (angle_controller[i].target.current > (int16_t)((7.0 / 20.0) * 10000)) {
+      //       angle_controller[i].target.current = (int16_t)((4.9 / 20.0) * 10000);
+      //     }
+      //   }
+      // }
+      int16_t current = angle_controller[i].target.current;
+
+      // angle_controller[i].motors.pre_fusion_cnt = angle_controller[i].motors.fusion_cnt;
+  
       tx_datas[i * 2] = ((current >> 8) & 0xFF);
       tx_datas[i * 2 + 1] = (current & 0xFF);
     }
