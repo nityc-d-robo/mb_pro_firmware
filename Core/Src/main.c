@@ -56,8 +56,8 @@ float ANGLE_DT  = 0.0001f;
 #define INTEGRAL_MAX (4000.0f)
 #define INTEGRAL_MIN (-4000.0f)
 
-#define CURRENT_MAX (10.f)
-#define CURRENT_MIN (-10.f)
+#define CURRENT_MAX (15.f)
+#define CURRENT_MIN (-15.f)
 
 #define MAX_DIFF_RPM 30
 
@@ -307,14 +307,21 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
     /* 角度制御 */
     tx_header.Identifier = 0x200;
-    angle_controller[3].target.mode = ANGLE;
+    angle_controller[0].target.mode = ANGLE;
+    angle_controller[1].target.mode = ANGLE;
     for (size_t i = 0; i < 4; i++) {
       if (angle_controller[i].target.mode != ANGLE) {
         tx_datas[i * 2] = 0;
         tx_datas[i * 2 + 1] = 0;
         continue; 
       }
-      // int16_t current = 500;
+      // int16_t current_1 = 10000;
+      // int16_t current_2 = -10000;
+      // tx_datas[0] = ((current_1 >> 8) & 0xFF);
+      // tx_datas[1] = (current_1 & 0xFF);
+      // tx_datas[2] = ((current_2 >> 8) & 0xFF);
+      // tx_datas[3] = (current_2 & 0xFF);
+
       int16_t current = rotateAngle(&angle_controller[i]);
 
       tx_datas[i * 2] = ((current >> 8) & 0xFF);
