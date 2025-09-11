@@ -35,7 +35,9 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 uint32_t id_own;
-SpeedController controller[8] = { 0 };
+uint32_t id_angle;
+SpeedController speed_controller[8] = { 0 };
+AngleController angle_controller[4] = { 0 };
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,11 +48,16 @@ float KD  = 0.f;
 
 float DT = 0.05f;
 
+float ANGLE_KP  = 0.01f;
+float ANGLE_KI  = 0.0001f;
+float ANGLE_KD  = 0.f;
+float ANGLE_DT  = 0.05f;
+
 #define INTEGRAL_MAX (4000.0f)
 #define INTEGRAL_MIN (-4000.0f)
 
-#define CURRENT_MAX (6.f)
-#define CURRENT_MIN (-6.f)
+#define CURRENT_MAX (1.f)
+#define CURRENT_MIN (-1.f)
 
 #define MAX_DIFF_RPM 30
 
@@ -224,6 +231,32 @@ int16_t rotateSpeed(SpeedController *cnt_) {
   return normalized_current;
 }
 
+int16_t rotateAngle(AngleController *cnt_) {
+  cnt_->error = cnt_->target.fusion_cnt - cnt_->motors.fusion_cnt;
+
+  cnt_->p = cnt_->error;
+  float p_term = KP * cnt_->error;
+
+  cnt_->i += cnt_->error * DT;
+  if (cnt_->i > INTEGRAL_MAX) {
+    cnt_->i = INTEGRAL_MAX;
+  } else if (cnt_->i < INTEGRAL_MIN) {
+    cnt_->i = INTEGRAL_MIN;
+  }
+  float i_term = KI * cnt_->i;
+  cnt_->pre_error = cnt_->error;
+
+  float output_current = p_term + i_term;
+  if (output_current > CURRENT_MAX) {
+    output_current = CURRENT_MAX;
+  } else if (output_current < CURRENT_MIN) {
+    output_current = CURRENT_MIN;
+  }
+  int16_t normalized_current = (int16_t)((output_current / 20.0) * 10000);
+
+  return normalized_current;
+}
+
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
   if (htim->Instance == TIM6) {
     __HAL_TIM_CLEAR_FLAG(&htim6, TIM_IT_UPDATE);
@@ -240,13 +273,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
     tx_header.FDFormat = FDCAN_CLASSIC_CAN;
 
     for (size_t i = 0; i < 4; i++) {
-      if (controller[i].target.mode != SPEED) { continue; }
+      if (speed_controller[i].target.mode != SPEED) { continue; }
 
-      controller[i].target.pre_ramped_rpm = controller[i].target.ramped_rpm;
+      speed_controller[i].target.pre_ramped_rpm = speed_controller[i].target.ramped_rpm;
 
-      controller[i].target.ramped_rpm = rampedRPM(controller[i].target.rpm, controller[i].target.pre_ramped_rpm);
+      speed_controller[i].target.ramped_rpm = rampedRPM(speed_controller[i].target.rpm, speed_controller[i].target.pre_ramped_rpm);
 
-      int16_t current = rotateSpeed(&controller[i]);
+      int16_t current = rotateSpeed(&speed_controller[i]);
 
       tx_datas[i * 2] = ((current >> 8) & 0xFF);
       tx_datas[i * 2 + 1] = (current & 0xFF);
@@ -255,22 +288,39 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
     tx_header.Identifier = 0x1FF;
     for (size_t i = 0; i < 4; i++) {
-      if (controller[i + 4].target.mode != SPEED) {
+      if (speed_controller[i + 4].target.mode != SPEED) {
         tx_datas[i * 2] = 0;
         tx_datas[i * 2 + 1] = 0;
         continue; 
       }
 
-      controller[i + 4].target.pre_ramped_rpm = controller[i + 4].target.ramped_rpm;
+      speed_controller[i + 4].target.pre_ramped_rpm = speed_controller[i + 4].target.ramped_rpm;
 
-      controller[i + 4].target.ramped_rpm = rampedRPM(controller[i + 4].target.rpm, controller[i + 4].target.pre_ramped_rpm);
+      speed_controller[i + 4].target.ramped_rpm = rampedRPM(speed_controller[i + 4].target.rpm, speed_controller[i + 4].target.pre_ramped_rpm);
 
-      int16_t current = rotateSpeed(&controller[i + 4]);
+      int16_t current = rotateSpeed(&speed_controller[i + 4]);
 
       tx_datas[i * 2] = ((current >> 8) & 0xFF);
       tx_datas[i * 2 + 1] = (current & 0xFF);
     }
     HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan2, &tx_header, tx_datas);
+
+    /* 角度制御 */
+    tx_header.Identifier = 0x200;
+    angle_controller[3].target.mode = ANGLE;
+    for (size_t i = 0; i < 4; i++) {
+      if (angle_controller[i].target.mode != ANGLE) {
+        tx_datas[i * 2] = 0;
+        tx_datas[i * 2 + 1] = 0;
+        continue; 
+      }
+      // int16_t current = 500;
+      int16_t current = rotateAngle(&angle_controller[i]);
+
+      tx_datas[i * 2] = ((current >> 8) & 0xFF);
+      tx_datas[i * 2 + 1] = (current & 0xFF);
+    }
+    HAL_FDCAN_AddMessageToTxFifoQ(&hfdcan1, &tx_header, tx_datas);
   }
   
 }

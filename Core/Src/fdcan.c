@@ -22,8 +22,10 @@
 
 /* USER CODE BEGIN 0 */
 extern uint32_t id_own;
+extern uint32_t id_angle;
 
-extern SpeedController controller[8];
+extern SpeedController speed_controller[8];
+extern AngleController angle_controller[4];
 /* USER CODE END 0 */
 
 FDCAN_HandleTypeDef hfdcan1;
@@ -82,6 +84,7 @@ void MX_FDCAN1_Init(void)
 
   /* このマザーボード宛のデータを受信 */
   id_own = (MB_ID | 0x0);
+  id_angle = (MB_ID | 0x1);
 
   filter.IdType = FDCAN_STANDARD_ID;
   filter.FilterIndex = 2;
@@ -107,11 +110,16 @@ void MX_FDCAN1_Init(void)
   HAL_FDCAN_ConfigFilter(&hfdcan1, &filter);
 
   filter.FilterIndex = 6;
-  filter.FilterConfig = FDCAN_FILTER_DISABLE;
+  filter.FilterID1 = RX_PDO1_CODE | id_angle;
+  filter.FilterID2 = TX_PDO1_CODE | id_angle;
   HAL_FDCAN_ConfigFilter(&hfdcan1, &filter);
 
+  filter.IdType = FDCAN_STANDARD_ID;
   filter.FilterIndex = 7;
-  filter.FilterConfig = FDCAN_FILTER_DISABLE;
+  filter.FilterType = FDCAN_FILTER_RANGE;
+  filter.FilterConfig = FDCAN_FILTER_TO_RXFIFO1;
+  filter.FilterID1 = ROBO_MASTER_RX1;
+  filter.FilterID2 = ROBO_MASTER_RX8;
   HAL_FDCAN_ConfigFilter(&hfdcan1, &filter);
 
   HAL_FDCAN_ConfigGlobalFilter(&hfdcan1, FDCAN_REJECT, FDCAN_REJECT, FDCAN_FILTER_REMOTE, FDCAN_REJECT_REMOTE);
@@ -340,14 +348,52 @@ void FDCAN1_RxFifo1Callback(FDCAN_HandleTypeDef *hfdcan1_, uint32_t RxFifo1ITs) 
   if  (HAL_FDCAN_GetRxMessage(hfdcan1_, FDCAN_RX_FIFO1, &rx_header, rx_data) != HAL_OK) { return; }
   if (rx_header.Identifier == (RX_PDO1_CODE | id_own)) {
     for (size_t i = 0; i < 4; i++) {
-      controller[i].target.mode = SPEED;
-      controller[i].target.rpm = (float)((int16_t)(rx_data[i * 2] << 8 | rx_data[i * 2 + 1]) * GEAR_RATIO);
+      speed_controller[i].target.mode = SPEED;
+      speed_controller[i].target.rpm = (float)((int16_t)(rx_data[i * 2] << 8 | rx_data[i * 2 + 1]) * GEAR_RATIO);
     }
   } else if (rx_header.Identifier == (RX_PDO2_CODE | id_own)) {
     for (size_t i = 0; i < 4; i++) {
-      controller[i + 4].target.mode = SPEED;
-      controller[i + 4].target.rpm = (float)((int16_t)(rx_data[i * 2] << 8 | rx_data[i * 2 + 1]) * GEAR_RATIO);
+      speed_controller[i + 4].target.mode = SPEED;
+      speed_controller[i + 4].target.rpm = (float)((int16_t)(rx_data[i * 2] << 8 | rx_data[i * 2 + 1]) * GEAR_RATIO);
     }
+  }
+  if (rx_header.Identifier == (RX_PDO1_CODE | id_angle)) {
+    for (size_t i = 0; i < 3; i++) {
+      angle_controller[i].target.mode = ANGLE;
+      angle_controller[i].target.fusion_cnt += (int64_t)((int16_t)(rx_data[i * 2] << 8 | rx_data[i * 2 + 1]) / 360) * 8192;
+    }
+  }
+  if (rx_header.Identifier == (RX_PDO2_CODE | id_angle)) {
+    for (size_t i = 0; i < 3; i++) {
+      // angle_controller[i].target.mode = ANGLE;
+      // angle_controller[i].target.angle += ((int16_t)(rx_data[i * 2] << 8 | rx_data[i * 2 + 1]) / 360) * 8192;
+    }
+  }
+
+  switch (rx_header.Identifier) {
+    case ROBO_MASTER_RX1:
+    case ROBO_MASTER_RX2:
+    case ROBO_MASTER_RX3:
+    case ROBO_MASTER_RX4:
+      int32_t motor_id = (rx_header.Identifier & 0x0F) - 1;
+      int16_t new_angle = (int16_t)(rx_data[0] << 8 | rx_data[1]);
+      if ((angle_controller[motor_id].motors.angle - new_angle) > 6000) {
+        angle_controller[motor_id].motors.overflow++;
+      } else if ((angle_controller[motor_id].motors.angle - new_angle) < -6000) {
+        angle_controller[motor_id].motors.overflow--;
+      }
+      angle_controller[motor_id].motors.angle = new_angle;
+      if (angle_controller[motor_id].motors.fusion_cnt == 0) {
+        angle_controller[motor_id].target.fusion_cnt = (int64_t)(new_angle + (int64_t)(angle_controller[motor_id].motors.overflow * 8191));
+      }
+      
+      angle_controller[motor_id].motors.fusion_cnt = (int64_t)(new_angle + (int64_t)(angle_controller[motor_id].motors.overflow * 8191));
+      angle_controller[motor_id].motors.rpm = (float)((int16_t)(rx_data[2] << 8 | rx_data[3])); 
+      angle_controller[motor_id].motors.current = (rx_data[4] << 8 | rx_data[5]);
+      break;
+    
+    default:
+      break;
   }
 }
 
@@ -357,9 +403,9 @@ void FDCAN2_RxFifo0Callback(FDCAN_HandleTypeDef *hfdcan2_, uint32_t RxFifo0ITs) 
 
   if (HAL_FDCAN_GetRxMessage(hfdcan2_, FDCAN_RX_FIFO0, &rx_header, rx_data) != HAL_OK) { return; }
   int32_t motor_id = (rx_header.Identifier & 0x0F) - 1;
-  controller[motor_id].motors.angle = (rx_data[0] << 8 | rx_data[1]);
-  controller[motor_id].motors.rpm = (float)((int16_t)(rx_data[2] << 8 | rx_data[3])); 
-  controller[motor_id].motors.current = (rx_data[4] << 8 | rx_data[5]);
-  controller[motor_id].motors.temp = (rx_data[6]);
+  speed_controller[motor_id].motors.angle = (rx_data[0] << 8 | rx_data[1]);
+  speed_controller[motor_id].motors.rpm = (float)((int16_t)(rx_data[2] << 8 | rx_data[3])); 
+  speed_controller[motor_id].motors.current = (rx_data[4] << 8 | rx_data[5]);
+  speed_controller[motor_id].motors.temp = (rx_data[6]);
 }
 /* USER CODE END 1 */

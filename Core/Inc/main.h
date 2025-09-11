@@ -70,6 +70,7 @@ extern "C" {
 #define USB_CAN_ID      0x01U
 
 /* RoboMaster ID*/
+// tx rx逆
 #define ROBO_MASTER_TX1 0x200U
 #define ROBO_MASTER_TX2 0x1FFU
 
@@ -125,6 +126,8 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 typedef struct {
   int16_t angle;
+  int16_t overflow;
+  int64_t fusion_cnt;
   float rpm;
   int16_t current;
   int8_t temp;
@@ -142,6 +145,13 @@ typedef struct {
 } TargetState;
 
 typedef struct {
+  Mode mode;
+  int64_t fusion_cnt;
+  float ramped_angle;
+  float pre_ramped_angle;
+} AngleTargetState;
+
+typedef struct {
   MotorState motors;
   TargetState target;
   float p;
@@ -150,6 +160,16 @@ typedef struct {
   float error;
   float pre_error;
 } SpeedController;
+
+typedef struct {
+  MotorState motors;
+  AngleTargetState target;
+  float p;
+  float i;
+  float d;
+  float error;
+  float pre_error;
+} AngleController;
 
 /* USER CODE END Private defines */
 
