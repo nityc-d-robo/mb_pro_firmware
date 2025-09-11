@@ -56,8 +56,8 @@ float ANGLE_DT  = 0.0001f;
 #define INTEGRAL_MAX (4000.0f)
 #define INTEGRAL_MIN (-4000.0f)
 
-#define CURRENT_MAX (1.f)
-#define CURRENT_MIN (-1.f)
+#define CURRENT_MAX (10.f)
+#define CURRENT_MIN (-10.f)
 
 #define MAX_DIFF_RPM 30
 
