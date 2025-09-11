@@ -127,7 +127,7 @@ void Error_Handler(void);
 typedef struct {
   int16_t angle;
   int16_t overflow;
-  int64_t fusion_cnt;
+  int32_t fusion_cnt;
   float rpm;
   int16_t current;
   int8_t temp;
@@ -146,7 +146,7 @@ typedef struct {
 
 typedef struct {
   Mode mode;
-  int64_t fusion_cnt;
+  int32_t fusion_cnt;
   float ramped_angle;
   float pre_ramped_angle;
 } AngleTargetState;

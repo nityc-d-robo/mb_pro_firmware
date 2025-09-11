@@ -232,7 +232,7 @@ int16_t rotateSpeed(SpeedController *cnt_) {
 }
 
 int16_t rotateAngle(AngleController *cnt_) {
-  cnt_->error = cnt_->target.fusion_cnt - cnt_->motors.fusion_cnt;
+  cnt_->error = (float)(cnt_->target.fusion_cnt - cnt_->motors.fusion_cnt);
 
   cnt_->p = cnt_->error;
   float p_term = ANGLE_KP * cnt_->error;
