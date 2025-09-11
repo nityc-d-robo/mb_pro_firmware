@@ -235,7 +235,7 @@ int16_t rotateAngle(AngleController *cnt_) {
   cnt_->error = cnt_->target.fusion_cnt - cnt_->motors.fusion_cnt;
 
   cnt_->p = cnt_->error;
-  float p_term = KP * cnt_->error;
+  float p_term = ANGLE_KP * cnt_->error;
 
   cnt_->i += cnt_->error * DT;
   if (cnt_->i > INTEGRAL_MAX) {
@@ -243,7 +243,7 @@ int16_t rotateAngle(AngleController *cnt_) {
   } else if (cnt_->i < INTEGRAL_MIN) {
     cnt_->i = INTEGRAL_MIN;
   }
-  float i_term = KI * cnt_->i;
+  float i_term = ANGLE_KI * cnt_->i;
   cnt_->pre_error = cnt_->error;
 
   float output_current = p_term + i_term;
