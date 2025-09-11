@@ -237,7 +237,7 @@ int16_t rotateAngle(AngleController *cnt_) {
   cnt_->p = cnt_->error;
   float p_term = ANGLE_KP * cnt_->error;
 
-  cnt_->i += cnt_->error * DT;
+  cnt_->i += cnt_->error * ANGLE_DT;
   if (cnt_->i > INTEGRAL_MAX) {
     cnt_->i = INTEGRAL_MAX;
   } else if (cnt_->i < INTEGRAL_MIN) {
