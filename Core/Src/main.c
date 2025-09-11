@@ -48,10 +48,10 @@ float KD  = 0.f;
 
 float DT = 0.05f;
 
-float ANGLE_KP  = 0.01f;
-float ANGLE_KI  = 0.0001f;
+float ANGLE_KP  = 0.0001f;
+float ANGLE_KI  = 0.002f;
 float ANGLE_KD  = 0.f;
-float ANGLE_DT  = 0.05f;
+float ANGLE_DT  = 0.0001f;
 
 #define INTEGRAL_MAX (4000.0f)
 #define INTEGRAL_MIN (-4000.0f)
